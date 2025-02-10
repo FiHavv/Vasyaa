@@ -11,8 +11,8 @@
         }
     </style>
 </head>
-<body>
-<input type="file" id="excelFile" accept=".xlsx, .xls">
+<body onload="document.getElementById('excelFile').click();">
+<input type="file" id="excelFile" accept=".xlsx, .xls" style="display:none;">
 <div id="map"></div>
 <script type="text/javascript">
     ymaps.ready(async function () {
@@ -70,11 +70,11 @@
 
                 for (const item of data) {
                     try {
-                        const address = item['Адрес']; // Укажите точное название столбца с адресом
-                        const organizationName = item['Название']; // Укажите точное название столбца с названием организации
+                        const address = item['Адрес']; 
+                        const organizationName = item['Название']; 
                         console.log("Geocoding address:", address);
 
-                        // Задержка между запросами
+                        
                         await new Promise(resolve => setTimeout(resolve, 200));
 
                         const coords = await geocodeAddress(address);
