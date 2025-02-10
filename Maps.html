@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Яндекс.Карты: Геокодирование адресов из Excel</title>
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=4ebb1dfa-50ae-4120-bfc2-13f2550a75d5" type="text/javascript"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        #map {
+            width: 1910px;
+            height: 880px;
+        }
+    </style>
+</head>
+<body>
+<input type="file" id="excelFile" accept=".xlsx, .xls">
+<div id="map"></div>
+<script type="text/javascript">
+    ymaps.ready(async function () {
+        var myMap = new ymaps.Map('map', {
+            center: [55.75, 37.62],
+            zoom: 10
+        });
+
+        async function geocodeAddress(address) {
+            return new Promise((resolve, reject) => {
+                ymaps.geocode(address)
+                    .then(function (res) {
+                        const firstGeoObject = res.geoObjects.get(0);
+                        if (firstGeoObject) {
+                            const coords = firstGeoObject.geometry.getCoordinates();
+                            resolve(coords);
+                        } else {
+                            console.warn(`Не удалось найти координаты для адреса: ${address}`);
+                            resolve(null); // Resolve with null
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error(`Ошибка геокодирования адреса ${address}:`, error);
+                        resolve(null); // Resolve with null
+                    });
+            });
+        }
+
+        function readExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0]; // Берем первый лист
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+                    resolve(json);
+                };
+
+                reader.onerror = function (error) {
+                    reject(error);
+                };
+
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        document.getElementById('excelFile').addEventListener('change', async function (e) {
+            const file = e.target.files[0];
+            try {
+                const data = await readExcelFile(file);
+                console.log("Excel Data:", data);
+
+                for (const item of data) {
+                    try {
+                        const address = item['Адрес']; // Укажите точное название столбца с адресом
+                        const organizationName = item['Название']; // Укажите точное название столбца с названием организации
+                        console.log("Geocoding address:", address);
+
+                        // Задержка между запросами
+                        await new Promise(resolve => setTimeout(resolve, 200));
+
+                        const coords = await geocodeAddress(address);
+
+                        if (coords) {
+                            const [latitude, longitude] = coords;
+                            console.log("Coordinates:", latitude, longitude);
+
+                            const balloonContent = `
+                                <b>${organizationName}</b><br>
+                                Адрес: ${address}
+                            `;
+
+                            var placemark = new ymaps.Placemark([latitude, longitude], {
+                                balloonContent: balloonContent
+                            });
+                            console.log("Placemark created:", placemark);
+
+                            myMap.geoObjects.add(placemark);
+                            console.log("Placemark added to map");
+                        } else {
+                            console.warn(`Не удалось геокодировать адрес: ${address}`);
+                        }
+
+                    } catch (error) {
+                        console.error('Ошибка обработки организации:', item, error);
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки или обработки Excel:', error);
+            }
+        });
+    });
+</script>
+</body>
+</html>
